@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.6.2-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
 
 # Set noninteractive mode for apt-get
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,12 +11,18 @@ RUN echo "Etc/UTC" > /etc/timezone && \
 
 # Install Python
 RUN apt-get update && apt-get install -y \
-    python3.8 \
+    python3.10 \
     python3-pip \
-    git
+    git \
+    curl \
+    gnupg2 \
+    lsb-release \
+    libgeos-dev \
+    libgeos++-dev \
+    libgeos-c1v5
 
 # Install PyTorch
-COPY requirements.txt /tmp/requirements.txt
+COPY ../requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
@@ -24,23 +30,40 @@ RUN pip3 install torch torchvision torchaudio --index-url https://download.pytor
 RUN pip3 install cupy-cuda11x scikit-learn
 RUN pip3 install 'git+https://github.com/facebookresearch/detectron2.git'
 
-# Install ROS
-RUN apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
-RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list'
+# Install ROS2 Humble
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ros-noetic-desktop-full
+    ros-humble-desktop
 
-# Install ROS packages
-RUN apt install -y ros-noetic-pybind11-catkin \
-    ros-noetic-grid-map-core ros-noetic-grid-map-msgs ros-noetic-grid-map-ros ros-noetic-grid-map-rviz-plugin \
+# Install ROS2 packages
+RUN apt-get install -y \
+    ros-humble-grid-map-core ros-humble-grid-map-msgs ros-humble-grid-map-ros \
+    ros-humble-pcl-ros \
+    ros-humble-image-transport \
+    ros-humble-tf2-geometry-msgs \
+    ros-humble-tf-transformations \
     libopencv-dev \
     libeigen3-dev \
     libgmp-dev \
     libmpfr-dev \
     libboost-all-dev \
-    ros-noetic-turtlebot3-gazebo ros-noetic-turtlebot3-teleop \
-    ros-noetic-ros-numpy
+    ros-humble-turtlebot3-gazebo ros-humble-turtlebot3-teleop \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    python3-vcstool
 
-RUN pip3 install catkin-tools
+# Try to install grid-map rviz plugins (may not be available in Humble)
+RUN apt-get install -y ros-humble-grid-map-rviz-plugin || echo "grid-map rviz plugin not available, skipping..."
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Install Python packages for ROS2
+RUN pip3 install ros2-numpy
+
+# Source ROS2 setup
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+
 ENV TURTLEBOT3_MODEL=waffle

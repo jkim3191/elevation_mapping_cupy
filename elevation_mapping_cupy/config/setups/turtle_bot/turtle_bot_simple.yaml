@@ -1,4 +1,4 @@
-/elevation_mapping_node:
+elevation_mapping:
   ros__parameters:
     pointcloud_channel_fusions:
       rgb: 'color'

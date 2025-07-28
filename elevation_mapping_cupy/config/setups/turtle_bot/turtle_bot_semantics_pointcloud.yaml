@@ -1,4 +1,4 @@
-/elevation_mapping_node:
+elevation_mapping:
   ros__parameters:
     #### Plugins ########
     plugin_config_file: '$(rospack find elevation_mapping_cupy)/config/setups/turtle_bot/plugin_config.yaml'

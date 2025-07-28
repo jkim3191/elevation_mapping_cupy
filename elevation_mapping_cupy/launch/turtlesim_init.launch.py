@@ -104,32 +104,20 @@ def generate_launch_description():
         }.items()
     )
 
-    # Generate robot_description from urdf
-    robot_description_content = Command([
-        'cat ',
-        PathJoinSubstitution([
-            turtlebot3_description_dir, 'urdf', 'turtlebot3_waffle.urdf'
-        ])
-    ])
-
-    robot_description = {'robot_description': robot_description_content}
-
-    # Robot State Publisher
-    robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='waffle_state_publisher',
-        output='screen',
-        parameters=[
-            robot_description,
-            {
-                'use_sim_time': use_sim_time,
-                'publish_frequency': 50.0  # Set publishing frequency to 50 Hz
-            }
-        ]
+    # Include TurtleBot3 Gazebo robot description (has proper Gazebo plugins)
+    turtlebot3_gazebo_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([
+                turtlebot3_gazebo_dir, 'launch', 'robot_state_publisher.launch.py'
+            ])
+        ),
+        launch_arguments={
+            'model': model,
+            'use_sim_time': use_sim_time
+        }.items()
     )
 
-    # Spawn the TurtleBot3 model in Gazebo
+    # Spawn the TurtleBot3 model in Gazebo using SDF file with plugins
     spawn_entity = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
@@ -138,7 +126,9 @@ def generate_launch_description():
                 TextSubstitution(text='turtlebot3_'),
                 model
             ]),
-            '-topic', 'robot_description',
+            '-file', PathJoinSubstitution([
+                turtlebot3_gazebo_dir, 'models', 'turtlebot3_waffle', 'model.sdf'
+            ]),
             '-x', x_pos,
             '-y', y_pos,
             '-z', z_pos
@@ -159,8 +149,7 @@ def generate_launch_description():
 
     # Add actions
     ld.add_action(gazebo_launch)
-    # ld.add_action(joint_state_publisher_node)
-    ld.add_action(robot_state_publisher_node)
+    ld.add_action(turtlebot3_gazebo_launch)  # This includes robot state publisher with proper plugins
     ld.add_action(spawn_entity)
     # ld.add_action(rviz_node)
 

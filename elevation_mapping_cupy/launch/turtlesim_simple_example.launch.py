@@ -15,7 +15,7 @@ def generate_launch_description():
         default_value=PathJoinSubstitution([
             elevation_mapping_cupy_dir,
             'rviz',
-            'turtle_example.rviz'
+            'turtle_example_rviz2.rviz'
         ]),
         description='Path to the RViz config file'
     )

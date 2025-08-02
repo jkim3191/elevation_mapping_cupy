@@ -71,7 +71,7 @@ def generate_launch_description():
 
     # Launch configurations
     use_sim_time = LaunchConfiguration('use_sim_time')
-    # rviz_config = LaunchConfiguration('rviz_config')
+    rviz_config = LaunchConfiguration('rviz_config')
     model = LaunchConfiguration('model')
     x_pos = LaunchConfiguration('x_pos')
     y_pos = LaunchConfiguration('y_pos')
@@ -136,12 +136,22 @@ def generate_launch_description():
         output='screen'
     )
 
+    # RViz Node
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        arguments=['-d', rviz_config],
+        parameters=[{'use_sim_time': use_sim_time}],
+        output='screen'
+    )
+
     # Define LaunchDescription variable
     ld = LaunchDescription()
 
     # Add the declared arguments
     ld.add_action(use_sim_time_arg)
-    # ld.add_action(rviz_config_arg)
+    ld.add_action(rviz_config_arg)
     ld.add_action(model_arg)
     ld.add_action(x_pos_arg)
     ld.add_action(y_pos_arg)
@@ -151,6 +161,6 @@ def generate_launch_description():
     ld.add_action(gazebo_launch)
     ld.add_action(turtlebot3_gazebo_launch)  # This includes robot state publisher with proper plugins
     ld.add_action(spawn_entity)
-    # ld.add_action(rviz_node)
+    ld.add_action(rviz_node)
 
     return ld

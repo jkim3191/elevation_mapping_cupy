@@ -27,11 +27,11 @@ elevation_mapping:
 
     subscribers:
       front_cam:
-        topic_name: '/camera/depth/points'
+        topic_name: '/intel_realsense_r200_depth/points'
         data_type: pointcloud
       color_cam: # for color camera
-        topic_name: '/camera/rgb/image_raw'
-        camera_info_topic_name: '/camera/depth/camera_info'
+        topic_name: '/camera/image_raw'
+        camera_info_topic_name: '/camera/camera_info'
         data_type: image
       semantic_cam: # for semantic images
         topic_name: '/front_cam/semantic_image'

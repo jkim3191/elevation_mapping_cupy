@@ -59,5 +59,15 @@ def generate_launch_description():
                 ])
             ],
             output='screen'
+        ),
+
+        # RViz2 Node
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            arguments=['-d', LaunchConfiguration('rviz_config')],
+            parameters=[{'use_sim_time': True}],
+            output='screen'
         )
     ]) 

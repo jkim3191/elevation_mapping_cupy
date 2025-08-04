@@ -14,7 +14,7 @@ elevation_mapping:
     #### Subscribers ########
     subscribers:
       front_cam_pointcloud:
-        topic_name: '/camera/depth/points'
+        topic_name: '/intel_realsense_r200_depth/points'
         data_type: pointcloud
 
 

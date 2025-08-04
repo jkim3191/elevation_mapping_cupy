@@ -263,18 +263,6 @@ class ElevationMappingNode(Node):
             )
             self._publishers_timers.append(timer)
 
-        # Additional publishers for missing topics
-        self.alive_pub = self.create_publisher(Empty, f"/{self.get_name()}/alive", 10)
-        self.point_pub = self.create_publisher(PointCloud2, f"/{self.get_name()}/elevation_map_points", 10)
-        self.normal_pub = self.create_publisher(MarkerArray, f"/{self.get_name()}/normal", 10)
-        self.statistics_pub = self.create_publisher(Statistics, f"/{self.get_name()}/statistics", 10)
-
-        # Initialize counters for statistics
-        self._pointcloud_process_counter = 0
-        self.last_statistics_time = self.get_clock().now()
-        self.enable_pointcloud_publishing = True  # Can be made configurable
-        self.enable_normal_publishing = True  # Can be made configurable
-
     def register_timers(self) -> None:
         self.time_pose_update = self.create_timer(
             0.1,
@@ -287,11 +275,6 @@ class ElevationMappingNode(Node):
         self.timer_time = self.create_timer(
             self.time_interval,
             self.update_time
-        )
-        # Timer for publishing statistics (1 Hz)
-        self.timer_statistics = self.create_timer(
-            1.0,
-            self.publish_statistics
         )
 
     def publish_map(self, key: str) -> None:
@@ -327,17 +310,6 @@ class ElevationMappingNode(Node):
         gm.outer_start_index = 0
         gm.inner_start_index = 0
         self._publishers_dict[key].publish(gm)
-
-        # Publish alive signal for the first map published (to avoid multiple alive signals)
-        if key == list(self.my_publishers.keys())[0]:
-            self.publish_alive()
-            
-            # Publish additional topics if enabled
-            if self.enable_pointcloud_publishing:
-                self.publish_as_pointcloud()
-            
-            if self.enable_normal_publishing:
-                self.publish_normal_as_arrow()
 
     def safe_lookup_transform(self, target_frame, source_frame, time):
         try:
@@ -445,189 +417,6 @@ class ElevationMappingNode(Node):
 
     def update_time(self) -> None:
         self._map.update_time()
-
-    def publish_alive(self) -> None:
-        """Publish alive signal"""
-        msg = Empty()
-        self.alive_pub.publish(msg)
-
-    def publish_statistics(self) -> None:
-        """Publish processing statistics"""
-        current_time = self.get_clock().now()
-        dt = (current_time - self.last_statistics_time).nanoseconds / 1e9
-        
-        msg = Statistics()
-        msg.header = Header()
-        msg.header.stamp = current_time.to_msg()
-        msg.header.frame_id = self.map_frame
-        
-        if dt > 0.0:
-            msg.pointcloud_process_fps = self._pointcloud_process_counter / dt
-        else:
-            msg.pointcloud_process_fps = 0.0
-            
-        self.statistics_pub.publish(msg)
-        
-        # Reset counter and time
-        self._pointcloud_process_counter = 0
-        self.last_statistics_time = current_time
-
-    def publish_as_pointcloud(self) -> None:
-        """Publish elevation map as point cloud"""
-        if not self._map.exists_layer("elevation"):
-            return
-            
-        # Get elevation data
-        elevation_data = self._map.get_layer("elevation")
-        if elevation_data is None:
-            return
-            
-        points = []
-        
-        # Create point cloud from elevation map
-        cell_n = self._map.cell_n
-        resolution = self._map.resolution
-        map_length = self._map.map_length
-        center_x = self._map_t.x if hasattr(self, '_map_t') else 0.0
-        center_y = self._map_t.y if hasattr(self, '_map_t') else 0.0
-        
-        # Calculate map bounds
-        half_length = map_length / 2.0
-        start_x = center_x - half_length
-        start_y = center_y - half_length
-        
-        for i in range(cell_n):
-            for j in range(cell_n):
-                elevation = elevation_data[i, j]
-                if not np.isnan(elevation) and not np.isinf(elevation):
-                    x = start_x + i * resolution
-                    y = start_y + j * resolution
-                    z = float(elevation)
-                    points.append([x, y, z])
-        
-        if not points:
-            return
-            
-        # Convert to numpy array
-        points_array = np.array(points, dtype=np.float32)
-        
-        # Create PointCloud2 message
-        msg = PointCloud2()
-        msg.header = Header()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.header.frame_id = self.map_frame
-        
-        # Create fields
-        msg.fields = [
-            PointField(name='x', offset=0, datatype=PointField.FLOAT32, count=1),
-            PointField(name='y', offset=4, datatype=PointField.FLOAT32, count=1),
-            PointField(name='z', offset=8, datatype=PointField.FLOAT32, count=1),
-        ]
-        
-        msg.point_step = 12  # 3 floats * 4 bytes each
-        msg.row_step = msg.point_step * len(points)
-        msg.height = 1
-        msg.width = len(points)
-        msg.is_dense = True
-        msg.data = points_array.tobytes()
-        
-        self.point_pub.publish(msg)
-
-    def publish_normal_as_arrow(self) -> None:
-        """Publish normal vectors as arrow markers"""
-        if not (self._map.exists_layer("normal_x") and 
-                self._map.exists_layer("normal_y") and 
-                self._map.exists_layer("normal_z") and
-                self._map.exists_layer("elevation")):
-            return
-            
-        normal_x = self._map.get_layer("normal_x")
-        normal_y = self._map.get_layer("normal_y") 
-        normal_z = self._map.get_layer("normal_z")
-        elevation = self._map.get_layer("elevation")
-        
-        if any(data is None for data in [normal_x, normal_y, normal_z, elevation]):
-            return
-            
-        marker_array = MarkerArray()
-        marker_id = 0
-        scale = 0.1
-        
-        # Map parameters
-        cell_n = self._map.cell_n
-        resolution = self._map.resolution
-        map_length = self._map.map_length
-        center_x = self._map_t.x if hasattr(self, '_map_t') else 0.0
-        center_y = self._map_t.y if hasattr(self, '_map_t') else 0.0
-        
-        # Calculate map bounds
-        half_length = map_length / 2.0
-        start_x = center_x - half_length
-        start_y = center_y - half_length
-        
-        for i in range(cell_n):
-            for j in range(cell_n):
-                if (not np.isnan(elevation[i, j]) and not np.isinf(elevation[i, j]) and
-                    not np.isnan(normal_x[i, j]) and not np.isnan(normal_y[i, j]) and not np.isnan(normal_z[i, j])):
-                    
-                    # Calculate position
-                    x = start_x + i * resolution
-                    y = start_y + j * resolution
-                    z = float(elevation[i, j])
-                    
-                    # Normal vector
-                    nx = float(normal_x[i, j])
-                    ny = float(normal_y[i, j])
-                    nz = float(normal_z[i, j])
-                    
-                    # Skip if normal is too small
-                    normal_magnitude = np.sqrt(nx*nx + ny*ny + nz*nz)
-                    if normal_magnitude < 0.1:
-                        continue
-                    
-                    # Create arrow marker
-                    marker = Marker()
-                    marker.header.frame_id = self.map_frame
-                    marker.header.stamp = self.get_clock().now().to_msg()
-                    marker.ns = "normal"
-                    marker.id = marker_id
-                    marker.type = Marker.ARROW
-                    marker.action = Marker.ADD
-                    
-                    # Arrow points
-                    start_point = Point()
-                    start_point.x = x
-                    start_point.y = y
-                    start_point.z = z
-                    
-                    end_point = Point()
-                    end_point.x = x + nx * scale
-                    end_point.y = y + ny * scale
-                    end_point.z = z + nz * scale
-                    
-                    marker.points = [start_point, end_point]
-                    
-                    # Arrow appearance
-                    marker.scale.x = 0.01  # shaft diameter
-                    marker.scale.y = 0.01  # head diameter
-                    marker.scale.z = 0.01  # head length
-                    
-                    marker.color.a = 1.0
-                    marker.color.r = 0.0
-                    marker.color.g = 1.0
-                    marker.color.b = 0.0
-                    
-                    marker_array.markers.append(marker)
-                    marker_id += 1
-                    
-                    # Limit number of markers to avoid performance issues
-                    if marker_id > 1000:
-                        break
-            if marker_id > 1000:
-                break
-        
-        if marker_array.markers:
-            self.normal_pub.publish(marker_array)
 
     def destroy_node(self) -> None:
         super().destroy_node()

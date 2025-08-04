@@ -104,30 +104,6 @@ def generate_launch_description():
         }.items()
     )
 
-    # Generate robot_description from urdf
-    robot_description_content = Command([
-        'cat ',
-        PathJoinSubstitution([
-            turtlebot3_description_dir, 'urdf', 'turtlebot3_waffle.urdf'
-        ])
-    ])
-
-    robot_description = {'robot_description': robot_description_content}
-
-    # Robot State Publisher
-    robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='waffle_state_publisher',
-        output='screen',
-        parameters=[
-            robot_description,
-            {
-                'use_sim_time': use_sim_time,
-                'publish_frequency': 50.0  # Set publishing frequency to 50 Hz
-            }
-        ]
-    )
 
     # Spawn the TurtleBot3 model in Gazebo using SDF file with plugins
     spawn_entity = Node(
@@ -138,12 +114,70 @@ def generate_launch_description():
                 TextSubstitution(text='turtlebot3_'),
                 model
             ]),
-            '-topic', 'robot_description',
+            '-file', PathJoinSubstitution([
+                turtlebot3_gazebo_dir, 'models', 'turtlebot3_waffle', 'model.sdf'
+            ]),
             '-x', x_pos,
             '-y', y_pos,
             '-z', z_pos
         ],
         output='screen'
+    )
+
+    # Static transform publisher for base_footprint to base_link
+    # This is needed because the robot model is defined relative to base_link
+    # but the differential drive publishes transforms to base_footprint
+    static_tf_publisher = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_footprint_to_base_link',
+        arguments=[
+            '0', '0', '0',  # x, y, z translation
+            '0', '0', '0',  # roll, pitch, yaw rotation
+            'base_footprint', 'base_link'  # parent frame, child frame
+        ],
+        output='screen'
+    )
+
+    # Static transform publisher for base_footprint to turtlebot3_base_footprint
+    # This bridges the gap between differential drive transforms and robot model frames
+    static_tf_prefix_publisher = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_footprint_to_turtlebot3_base_footprint',
+        arguments=[
+            '0', '0', '0',  # x, y, z translation
+            '0', '0', '0',  # roll, pitch, yaw rotation
+            'base_footprint', 'turtlebot3_base_footprint'  # parent frame, child frame
+        ],
+        output='screen'
+    )
+
+    # Robot state publisher to load the URDF model and publish robot_description
+    # This is needed for RViz to display the robot model
+    robot_description_content = Command([
+        'xacro ',
+        PathJoinSubstitution([
+            turtlebot3_description_dir, 'urdf', 'turtlebot3_waffle.urdf'
+        ]),
+        ' namespace:=turtlebot3_'
+    ])
+
+    robot_description = {'robot_description': robot_description_content}
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[
+            robot_description,
+            {
+                'use_sim_time': use_sim_time,
+                'publish_frequency': 50.0,
+                'ignore_timestamp': False
+            }
+        ]
     )
 
     # Define LaunchDescription variable
@@ -160,8 +194,10 @@ def generate_launch_description():
     # Add actions
     ld.add_action(gazebo_launch)
     # ld.add_action(joint_state_publisher_node)
-    ld.add_action(robot_state_publisher_node)
     ld.add_action(spawn_entity)
+    ld.add_action(static_tf_publisher)  # Add static transform publisher
+    ld.add_action(static_tf_prefix_publisher)  # Add prefix bridge transform
+    ld.add_action(robot_state_publisher)  # Add robot state publisher for RViz
     # ld.add_action(rviz_node)
 
     return ld

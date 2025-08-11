@@ -14,8 +14,8 @@ elevation_mapping:
     #### Subscribers ########
     subscribers:
       front_cam_pointcloud:
-        topic_name: '/intel_realsense_r200_depth/points'
-        data_type: pointcloud
+        topic_name: '/scan'
+        data_type: laserscan
 
 
     #### Publishers ########

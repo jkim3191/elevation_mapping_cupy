@@ -48,7 +48,11 @@ RUN apt-get install -y \
     ros-humble-navigation2 \
     ros-humble-nav2-bringup \
     ros-humble-dynamixel-sdk \
-    ros-humble-turtlebot3-msgs 
+    ros-humble-turtlebot3-msgs \
+    ros-humble-turtlebot3-gazebo \
+    ros-humble-turtlebot3-teleop \
+    ros-humble-turtlebot3-description \
+    ros-humble-grid-map-rviz-plugin 
 
 ENV TURTLEBOT3_MODEL=waffle
 ENV ROS_VERSION=2
@@ -78,6 +82,7 @@ RUN pip3 install "numpy<2.0"
 RUN pip3 install gymnasium
 RUN pip3 install cupy-cuda11x scikit-learn
 RUN pip3 install 'git+https://github.com/facebookresearch/detectron2.git'
+RUN pip3 install ros2_numpy
 
 
 ########### ROS1 ##############################################################################

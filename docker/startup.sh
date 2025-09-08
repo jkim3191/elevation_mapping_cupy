@@ -25,7 +25,8 @@ pip install -e .
 
 # ROS2 build
 cd $catkin_ws
-export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+export ROS_DOMAIN_ID=11
 colcon build
 source $catkin_ws/install/local_setup.bash
 source $catkin_ws/install/setup.bash
@@ -33,7 +34,8 @@ source $catkin_ws/install/setup.bash
 echo "source $catkin_ws/install/local_setup.bash" >> ~/.bashrc
 echo "source $catkin_ws/install/setup.bash" >> ~/.bashrc
 echo 'source /opt/ros/humble/setup.bash' >> ~/.bashrc
-echo 'export RMW_IMPLEMENTATION=rmw_fastrtps_cpp' >> ~/.bashrc
+echo 'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' >> ~/.bashrc
+echo 'export ROS_DOMAIN_ID=11' >> ~/.bashrc
 source ~/.bashrc
 
 # # ROS2 Bridge

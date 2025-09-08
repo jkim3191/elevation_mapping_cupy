@@ -38,7 +38,8 @@ RUN apt-get install -y \
     ros-humble-grid-map-core \
     ros-humble-grid-map-cv \
     ros-humble-grid-map-ros \
-    ros-humble-tf-transformations
+    ros-humble-tf-transformations \
+    ros-humble-rmw-cyclonedds-cpp
 
 RUN rosdep init && rosdep update
 
@@ -58,6 +59,8 @@ RUN apt-get install -y \
 ENV TURTLEBOT3_MODEL=waffle
 ENV ROS_VERSION=2
 ENV ROS_DISTRO=humble
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ENV ROS_DOMAIN_ID=11
 ################################################################################################
 
 # Preconfigure tzdata
@@ -79,11 +82,11 @@ RUN pip3 install -r /tmp/requirements.txt
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 # Install other Python packages
-RUN pip3 install "numpy<2.0"
 RUN pip3 install gymnasium
 RUN pip3 install cupy-cuda11x scikit-learn
 RUN pip3 install 'git+https://github.com/facebookresearch/detectron2.git'
-RUN pip3 install ros2_numpy
+RUN pip3 install "numpy>=2.0" matplotlib
+RUN pip3 install ros2_numpy || pip3 install --force-reinstall ros2_numpy
 
 
 ########### ROS1 ##############################################################################
